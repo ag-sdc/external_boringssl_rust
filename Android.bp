@@ -1,0 +1,190 @@
+// Copyright (C) 2022 The Android Open Source Project
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package {
+    default_applicable_licenses: ["external_boringssl_rust_license"],
+}
+
+license {
+    name: "external_boringssl_rust_license",
+    package_name: "boringssl_rust",
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+        "SPDX-license-identifier-OpenSSL",
+    ],
+    license_text: [
+        "NOTICE",
+    ],
+}
+
+rust_bindgen {
+    name: "libbssl_sys_raw",
+    source_stem: "bindings",
+    crate_name: "bssl_sys_raw",
+    host_supported: true,
+    wrapper_src: "bssl-sys/wrapper.h",
+    vendor_available: true,
+    product_available: true,
+    local_include_dirs: [
+        "bssl-sys",
+    ],
+    header_libs: [
+        "libcrypto_headers",
+        "libssl_headers",
+    ],
+    cflags: [
+        "-Iexternal/boringssl_rust/bssl-sys",
+        "-Iprebuilts/target/external/boringssl/src/include",
+        "-Iexternal/boringssl/src/include",
+    ],
+    bindgen_flags: [
+        "--no-derive-default",
+        "--enable-function-attribute-detection",
+        "--use-core",
+        "--default-macro-constant-type=signed",
+        "--rustified-enum=point_conversion_form_t",
+        "--allowlist-file=.*[[:punct:]]include[[:punct:]]openssl[[:punct:]].*\\.h",
+        "--allowlist-file=.*[[:punct:]]rust_wrapper\\.h",
+    ],
+    shared_libs: [
+        "libcrypto",
+        "libssl",
+    ],
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.virt",
+    ],
+}
+
+cc_library_static {
+    name: "libbssl_rust_support",
+    host_supported: true,
+    vendor_available: true,
+    product_available: true,
+    srcs: ["bssl-sys/rust_wrapper.c"],
+    local_include_dirs: [
+        "bssl-sys",
+    ],
+    header_libs: [
+        "libcrypto_headers",
+        "libssl_headers",
+    ],
+    cflags: [
+        "-Iexternal/boringssl_rust/bssl-sys",
+        "-Iprebuilts/target/external/boringssl/src/include",
+        "-Iexternal/boringssl/src/include",
+    ],
+    shared_libs: [
+        "libcrypto",
+        "libssl",
+    ],
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.virt",
+    ],
+}
+
+cc_library_host_static {
+    name: "libbssl_rust_support_static",
+    srcs: ["bssl-sys/rust_wrapper.c"],
+    local_include_dirs: [
+        "bssl-sys",
+    ],
+    header_libs: [
+        "libcrypto_headers",
+        "libssl_headers",
+    ],
+    cflags: [
+        "-Iexternal/boringssl_rust/bssl-sys",
+        "-Iprebuilts/target/external/boringssl/src/include",
+        "-Iexternal/boringssl/src/include",
+    ],
+    shared_libs: [
+        "libcrypto",
+        "libssl",
+    ],
+}
+
+genrule {
+    name: "libbssl_sys_src",
+    srcs: ["bssl-sys/src/lib.rs"],
+    out: ["lib.rs"],
+    cmd: "sed 's@^include!(env!(\"BINDGEN_RS_FILE\"));@pub use bssl_sys_raw::*;@' $(in) > $(out)",
+}
+
+rust_defaults {
+    name: "libbssl_sys_defaults",
+    host_supported: true,
+    crate_name: "bssl_sys",
+    visibility: ["//visibility:public"],
+    srcs: [":libbssl_sys_src"],
+    vendor_available: true,
+    product_available: true,
+    rlibs: ["libbssl_sys_raw"],
+}
+
+rust_library {
+    name: "libbssl_sys",
+    defaults: ["libbssl_sys_defaults"],
+    whole_static_libs: [
+        "libbssl_rust_support",
+    ],
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.virt",
+    ],
+}
+
+rust_library_host_rlib {
+    name: "libbssl_sys_static",
+    defaults: ["libbssl_sys_defaults"],
+    whole_static_libs: [
+        "libbssl_rust_support_static",
+    ],
+}
+
+rust_library_rlib {
+    name: "libbssl_sys_nostd",
+    defaults: ["libbssl_sys_defaults"],
+    prefer_rlib: true,
+    no_stdlibs: true,
+    stdlibs: [
+        "libcompiler_builtins.rust_sysroot",
+        "libcore.rust_sysroot",
+    ],
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.virt",
+    ],
+}
+
+rust_defaults {
+    name: "libbssl_crypto_defaults",
+    crate_name: "bssl_crypto",
+    srcs: ["bssl-crypto/src/lib.rs"],
+    rustlibs: ["libbssl_sys"],
+}
+
+rust_library {
+    name: "libbssl_crypto",
+    defaults: ["libbssl_crypto_defaults"],
+    host_supported: true,
+    apex_available: [
+        "//apex_available:platform",
+        "com.android.virt",
+    ],
+    visibility: ["//visibility:public"],
+    vendor_available: true,
+    product_available: true,
+}
